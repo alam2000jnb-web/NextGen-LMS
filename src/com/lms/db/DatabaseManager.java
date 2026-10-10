@@ -17,8 +17,6 @@ public class DatabaseManager {
     private static final String DB_FILE = "lms.db";
     private static final String JDBC_URL = "jdbc:sqlite:" + DB_FILE;
 
-    private Connection connection;
-
     private DatabaseManager() {
         try {
             Class.forName("org.sqlite.JDBC");
@@ -36,15 +34,20 @@ public class DatabaseManager {
         return instance;
     }
 
-    public synchronized Connection getConnection() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            connection = DriverManager.getConnection(JDBC_URL);
-            // Enable foreign keys in SQLite
-            try (Statement stmt = connection.createStatement()) {
-                stmt.execute("PRAGMA foreign_keys = ON;");
+    public Connection getConnection() throws SQLException {
+        Connection connection = DriverManager.getConnection(JDBC_URL);
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("PRAGMA foreign_keys = ON;");
+            stmt.execute("PRAGMA busy_timeout = 5000;");
+            return connection;
+        } catch (SQLException e) {
+            try {
+                connection.close();
+            } catch (SQLException closeError) {
+                e.addSuppressed(closeError);
             }
+            throw e;
         }
-        return connection;
     }
 
     private void initDatabase() throws SQLException {
